@@ -35,6 +35,9 @@ async function manejarBusqueda() {
     return;
   }
 
+  // Bloqueamos el botón mientras se resuelve la petición para evitar
+  // que el usuario dispare varias búsquedas simultáneas (doble clic, Enter + clic).
+  botonBuscar.disabled = true;
   mostrarCargando();
 
   try {
@@ -44,6 +47,9 @@ async function manejarBusqueda() {
   } catch (error) {
     // Si obtenerClima() lanzó un error, lo mostramos en el DOM
     mostrarError(error.message);
+  } finally {
+    // Pase lo que pase (éxito o error), volvemos a habilitar el botón
+    botonBuscar.disabled = false;
   }
 }
 

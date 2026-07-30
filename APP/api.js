@@ -58,50 +58,67 @@ function traducirWeatherCode(codigo) {
  * @throws {Error} Si la ciudad no existe, la API falla o hay un error de red.
  */
 export async function obtenerClima(ciudad) {
-  // Validación básica del parámetro de entrada
-  if (!ciudad || !ciudad.trim()) {
+  // Validación básica del parámetro de entrada (quitamos espacios sobrantes)
+  const ciudadLimpia = ciudad ? ciudad.trim() : "";
+  if (!ciudadLimpia) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
   // ===== PASO 1: Geocodificación (obtener latitud y longitud) =====
-  let datosGeo;
+
+  // 1.1 Hacemos la petición. Este try/catch SOLO cubre fallos de red
+  // (sin internet, dominio caído, CORS), no errores HTTP.
+  let respuestaGeo;
   try {
-    const respuestaGeo = await fetch(
-      `${URL_GEOCODIFICACION}?name=${encodeURIComponent(ciudad)}&count=1&language=es&format=json`
+    respuestaGeo = await fetch(
+      `${URL_GEOCODIFICACION}?name=${encodeURIComponent(ciudadLimpia)}&count=1&language=es&format=json`
     );
-
-    // response.ok verifica que el servidor respondió con un estado 2xx
-    if (!respuestaGeo.ok) {
-      throw new Error("No se pudo conectar con el servicio de ubicación.");
-    }
-
-    datosGeo = await respuestaGeo.json();
   } catch (error) {
-    // Captura errores de red (sin internet, dominio caído, CORS, etc.)
     throw new Error("Error de red al buscar la ciudad. Verifica tu conexión.");
   }
 
-  // Validamos que la API haya encontrado resultados para esa ciudad
+  // 1.2 response.ok verifica que el servidor respondió con un estado 2xx.
+  // Este chequeo va FUERA del try/catch de red para que su mensaje
+  // específico no sea reemplazado por el genérico de arriba.
+  if (!respuestaGeo.ok) {
+    throw new Error("No se pudo conectar con el servicio de ubicación.");
+  }
+
+  // 1.3 Parseamos el JSON (puede fallar si la respuesta viene corrupta)
+  let datosGeo;
+  try {
+    datosGeo = await respuestaGeo.json();
+  } catch (error) {
+    throw new Error("La respuesta del servicio de ubicación no es válida.");
+  }
+
+  // 1.4 Validamos que la API haya encontrado resultados para esa ciudad
   if (!datosGeo.results || datosGeo.results.length === 0) {
-    throw new Error(`No se encontró la ciudad "${ciudad}". Intenta con otro nombre.`);
+    throw new Error(`No se encontró la ciudad "${ciudadLimpia}". Intenta con otro nombre.`);
   }
 
   const { latitude: lat, longitude: lon, name: nombreCiudad } = datosGeo.results[0];
 
   // ===== PASO 2: Obtener el clima con las coordenadas =====
-  let datosClima;
+
+  let respuestaClima;
   try {
-    const respuestaClima = await fetch(
+    respuestaClima = await fetch(
       `${URL_CLIMA}?latitude=${lat}&longitude=${lon}&current_weather=true`
     );
-
-    if (!respuestaClima.ok) {
-      throw new Error("No se pudo obtener el clima en este momento.");
-    }
-
-    datosClima = await respuestaClima.json();
   } catch (error) {
     throw new Error("Error de red al obtener el clima. Intenta nuevamente.");
+  }
+
+  if (!respuestaClima.ok) {
+    throw new Error("No se pudo obtener el clima en este momento.");
+  }
+
+  let datosClima;
+  try {
+    datosClima = await respuestaClima.json();
+  } catch (error) {
+    throw new Error("La respuesta del servicio de clima no es válida.");
   }
 
   // Validamos que la respuesta tenga la información que necesitamos
