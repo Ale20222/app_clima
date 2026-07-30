@@ -1,18 +1,21 @@
 /**
  * api.js
- * Se encarga de toda la comunicación con las APIs externas de Open-Meteo.
- * No toca el DOM: solo pide datos y los retorna (o lanza errores controlados).
+ * Contiene la lógica para comunicarse con las APIs de Open-Meteo.
+ * Este archivo NO toca el DOM: solo obtiene datos y los devuelve listos para usar.
  */
 
-const GEO_URL = "https://geocoding-api.open-meteo.com/v1/search";
-const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
+// Paso 0: URLs base de las APIs que vamos a consumir
+const URL_GEOCODIFICACION = "https://geocoding-api.open-meteo.com/v1/search";
+const URL_CLIMA = "https://api.open-meteo.com/v1/forecast";
 
 /**
- * Traduce el "weather code" numérico de Open-Meteo a una descripción legible.
- * Referencia: tabla WMO Weather interpretation codes usada por Open-Meteo.
+ * Traduce el código numérico "weathercode" de Open-Meteo a una descripción
+ * en español. Basado en la tabla oficial de códigos WMO que usa Open-Meteo.
+ * @param {number} codigo
+ * @returns {string} descripción en español
  */
-function getWeatherDescription(code) {
-  const weatherCodes = {
+function traducirWeatherCode(codigo) {
+  const codigos = {
     0: "Cielo despejado",
     1: "Mayormente despejado",
     2: "Parcialmente nublado",
@@ -43,71 +46,75 @@ function getWeatherDescription(code) {
     99: "Tormenta con granizo intenso",
   };
 
-  return weatherCodes[code] ?? "Condición desconocida";
+  // Si el código no está en la tabla, devolvemos un texto genérico
+  return codigos[codigo] ?? "Condición desconocida";
 }
 
 /**
- * Obtiene el clima actual para una ciudad dada.
+ * Obtiene el clima actual de una ciudad.
  *
- * @param {string} cityName - Nombre de la ciudad a buscar.
- * @returns {Promise<{city: string, country: string, temperature: number, description: string}>}
- * @throws {Error} Con un mensaje claro si la ciudad no existe o falla la petición.
+ * @param {string} ciudad - Nombre de la ciudad a consultar.
+ * @returns {Promise<{ciudad: string, temperatura: number, descripcion: string}>}
+ * @throws {Error} Si la ciudad no existe, la API falla o hay un error de red.
  */
-export async function getWeatherByCity(cityName) {
-  if (!cityName || !cityName.trim()) {
+export async function obtenerClima(ciudad) {
+  // Validación básica del parámetro de entrada
+  if (!ciudad || !ciudad.trim()) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
-  // 1. Geocodificación: convertir el nombre de la ciudad en coordenadas
-  let geoData;
+  // ===== PASO 1: Geocodificación (obtener latitud y longitud) =====
+  let datosGeo;
   try {
-    const geoResponse = await fetch(
-      `${GEO_URL}?name=${encodeURIComponent(cityName)}&count=1&language=es&format=json`
+    const respuestaGeo = await fetch(
+      `${URL_GEOCODIFICACION}?name=${encodeURIComponent(ciudad)}&count=1&language=es&format=json`
     );
 
-    if (!geoResponse.ok) {
+    // response.ok verifica que el servidor respondió con un estado 2xx
+    if (!respuestaGeo.ok) {
       throw new Error("No se pudo conectar con el servicio de ubicación.");
     }
 
-    geoData = await geoResponse.json();
+    datosGeo = await respuestaGeo.json();
   } catch (error) {
-    // Errores de red (sin internet, CORS, etc.)
+    // Captura errores de red (sin internet, dominio caído, CORS, etc.)
     throw new Error("Error de red al buscar la ciudad. Verifica tu conexión.");
   }
 
-  if (!geoData.results || geoData.results.length === 0) {
-    throw new Error(`No se encontró la ciudad "${cityName}". Intenta con otro nombre.`);
+  // Validamos que la API haya encontrado resultados para esa ciudad
+  if (!datosGeo.results || datosGeo.results.length === 0) {
+    throw new Error(`No se encontró la ciudad "${ciudad}". Intenta con otro nombre.`);
   }
 
-  const { latitude, longitude, name, country } = geoData.results[0];
+  const { latitude: lat, longitude: lon, name: nombreCiudad } = datosGeo.results[0];
 
-  // 2. Clima: usar las coordenadas obtenidas para pedir el clima actual
-  let weatherData;
+  // ===== PASO 2: Obtener el clima con las coordenadas =====
+  let datosClima;
   try {
-    const weatherResponse = await fetch(
-      `${WEATHER_URL}?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+    const respuestaClima = await fetch(
+      `${URL_CLIMA}?latitude=${lat}&longitude=${lon}&current_weather=true`
     );
 
-    if (!weatherResponse.ok) {
+    if (!respuestaClima.ok) {
       throw new Error("No se pudo obtener el clima en este momento.");
     }
 
-    weatherData = await weatherResponse.json();
+    datosClima = await respuestaClima.json();
   } catch (error) {
     throw new Error("Error de red al obtener el clima. Intenta nuevamente.");
   }
 
-  if (!weatherData.current_weather) {
+  // Validamos que la respuesta tenga la información que necesitamos
+  if (!datosClima.current_weather) {
     throw new Error("El servicio de clima no devolvió información válida.");
   }
 
-  const { temperature, weathercode } = weatherData.current_weather;
+  const { temperature, weathercode } = datosClima.current_weather;
 
-  // 3. Retornar un objeto ya "listo" para que app.js solo lo renderice
+  // ===== PASO 3: Armar y devolver el objeto final =====
   return {
-    city: name,
-    country: country ?? "",
-    temperature,
-    description: getWeatherDescription(weathercode),
+    ciudad: nombreCiudad,
+    temperatura: temperature,
+    descripcion: traducirWeatherCode(weathercode),
   };
 }
