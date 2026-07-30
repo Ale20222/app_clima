@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App del Clima</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <main class="weather-card">
+    <h1 class="title">🌤️ Clima Ahora</h1>
+
+    <!-- Formulario de búsqueda -->
+    <div class="search-box">
+      <input
+        type="text"
+        id="city-input"
+        placeholder="Escribe una ciudad..."
+        autocomplete="off"
+      >
+      <button id="search-btn" type="button">Buscar</button>
+    </div>
+
+    <!-- Contenedor donde se renderiza el resultado, la carga o el error -->
+    <div id="result-container" class="result-container">
+      <p class="placeholder-text">Ingresa una ciudad para ver el clima 🌎</p>
+    </div>
+  </main>
+
+  <!-- type="module" permite usar import/export entre archivos -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

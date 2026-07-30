@@ -1,0 +1,153 @@
+/* ====== Reset básico ====== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Gradiente suave de fondo */
+  background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+  padding: 20px;
+}
+
+/* ====== Tarjeta principal ====== */
+.weather-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 32px 24px;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.title {
+  font-size: 1.6rem;
+  color: #2c3e50;
+  margin-bottom: 24px;
+}
+
+/* ====== Buscador ====== */
+.search-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+#city-input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid #dcdfe4;
+  border-radius: 12px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+#city-input:focus {
+  border-color: #74ebd5;
+}
+
+#search-btn {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6c5ce7, #74ebd5);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+#search-btn:hover {
+  opacity: 0.9;
+}
+
+#search-btn:active {
+  transform: scale(0.97);
+}
+
+/* ====== Contenedor de resultados ====== */
+.result-container {
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-text {
+  color: #7f8c8d;
+  font-size: 0.95rem;
+}
+
+.loading-text {
+  color: #6c5ce7;
+  font-weight: 500;
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+.error-text {
+  color: #e74c3c;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* ====== Resultado del clima ====== */
+.weather-result {
+  width: 100%;
+  animation: fadeIn 0.35s ease;
+}
+
+.city-name {
+  font-size: 1.3rem;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+.temperature {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: #6c5ce7;
+  margin-bottom: 4px;
+}
+
+.description {
+  font-size: 1rem;
+  color: #34495e;
+  text-transform: capitalize;
+}
+
+/* ====== Animaciones ====== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ====== Responsivo ====== */
+@media (max-width: 420px) {
+  .weather-card {
+    padding: 24px 16px;
+  }
+
+  .search-box {
+    flex-direction: column;
+  }
+
+  #search-btn {
+    width: 100%;
+  }
+}
