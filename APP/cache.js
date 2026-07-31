@@ -1,38 +1,78 @@
 /**
  * cache.js
- * Caché genérico en memoria para resultados de clima/pronóstico.
+ * Caché de resultados de clima/pronóstico con expiración de 1 hora.
  *
- * Nota de diseño: se usa un Map en memoria (no localStorage/sessionStorage)
- * para que funcione igual en cualquier entorno JS multiplataforma —
- * navegador de escritorio, móvil, webview embebido, o vistas previas
- * en sandbox donde el almacenamiento del navegador puede no estar
- * disponible o permitido. El costo es que el caché se reinicia si se
- * recarga la página; si tu app corre siempre en un navegador real y
- * quieres que sobreviva a recargas, puedes cambiar `Map` por
- * `localStorage.setItem/getItem` sin tocar el resto del proyecto,
- * ya que solo este archivo conoce el mecanismo de almacenamiento.
+ * Estrategia: se intenta usar localStorage para que el caché
+ * SOBREVIVA a recargas de página (F5, live-reload de VS Code, etc.),
+ * que es el escenario real en el que un usuario prueba "¿esto cachea?".
+ * Si localStorage no está disponible (modo incógnito con restricciones,
+ * vista previa en un iframe con sandbox, o cualquier entorno que
+ * bloquee el almacenamiento del navegador), se usa automáticamente un
+ * Map en memoria como respaldo, para que la app nunca se rompa por esto.
  */
 
 const DURACION_CACHE_MS = 60 * 60 * 1000; // 1 hora
+const PREFIJO = "clima_cache_";
 
-// clave -> { datos, timestamp }
-const almacenCache = new Map();
+// Respaldo en memoria (se usa solo si localStorage falla)
+const almacenMemoria = new Map();
+
+/**
+ * Detecta, una sola vez, si localStorage puede usarse en este entorno.
+ */
+function localStorageDisponible() {
+  try {
+    const clavePrueba = "__test_clima__";
+    window.localStorage.setItem(clavePrueba, "1");
+    window.localStorage.removeItem(clavePrueba);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const usarLocalStorage = typeof window !== "undefined" && localStorageDisponible();
 
 /**
  * Devuelve los datos cacheados para una clave si aún son válidos (< 1 hora).
  * @param {string} clave
- * @returns {any|null} los datos, o null si no existen / expiraron
+ * @returns {any|null}
  */
 export function obtenerDeCache(clave) {
-  const entrada = almacenCache.get(clave);
+  const ahora = Date.now();
+
+  if (usarLocalStorage) {
+    const crudo = window.localStorage.getItem(PREFIJO + clave);
+    if (!crudo) return null;
+
+    let entrada;
+    try {
+      entrada = JSON.parse(crudo);
+    } catch {
+      // Dato corrupto: lo eliminamos y actuamos como si no existiera
+      window.localStorage.removeItem(PREFIJO + clave);
+      return null;
+    }
+
+    if (ahora - entrada.timestamp > DURACION_CACHE_MS) {
+      window.localStorage.removeItem(PREFIJO + clave);
+      return null;
+    }
+
+    console.log(`[cache] HIT para "${clave}"`);
+    return entrada.datos;
+  }
+
+  // --- Respaldo en memoria ---
+  const entrada = almacenMemoria.get(clave);
   if (!entrada) return null;
 
-  const expirado = Date.now() - entrada.timestamp > DURACION_CACHE_MS;
-  if (expirado) {
-    almacenCache.delete(clave);
+  if (ahora - entrada.timestamp > DURACION_CACHE_MS) {
+    almacenMemoria.delete(clave);
     return null;
   }
 
+  console.log(`[cache] HIT (memoria) para "${clave}"`);
   return entrada.datos;
 }
 
@@ -42,17 +82,36 @@ export function obtenerDeCache(clave) {
  * @param {any} datos
  */
 export function guardarEnCache(clave, datos) {
-  almacenCache.set(clave, { datos, timestamp: Date.now() });
+  const entrada = { datos, timestamp: Date.now() };
+
+  if (usarLocalStorage) {
+    try {
+      window.localStorage.setItem(PREFIJO + clave, JSON.stringify(entrada));
+      console.log(`[cache] Guardado "${clave}"`);
+      return;
+    } catch {
+      // Si falla (ej. cuota excedida), caemos al respaldo en memoria
+    }
+  }
+
+  almacenMemoria.set(clave, entrada);
+  console.log(`[cache] Guardado en memoria "${clave}"`);
 }
 
 /**
  * Genera una clave de caché consistente combinando el tipo de consulta
- * y la ciudad (normalizada a minúsculas y sin espacios extra), para que
- * "Bogotá" y "bogotá " compartan la misma entrada de caché.
+ * y la ciudad, normalizada (minúsculas, sin espacios ni tildes extra)
+ * para que "Bogotá", "bogotá" y "BOGOTÁ " compartan la misma entrada.
  * @param {string} tipo - ej. "clima" o "pronostico"
  * @param {string} ciudad
  * @returns {string}
  */
 export function generarClave(tipo, ciudad) {
-  return `${tipo}:${ciudad.trim().toLowerCase()}`;
+  const normalizada = ciudad
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // quita tildes/diacríticos
+
+  return `${tipo}:${normalizada}`;
 }

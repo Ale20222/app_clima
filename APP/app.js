@@ -172,11 +172,17 @@ async function manejarComparacion() {
   botonComparar.disabled = true;
   contenedorComparar.innerHTML = `<p class="loading-text">Comparando ciudades... ⏳</p>`;
 
-  // No usamos try/catch aquí porque obtenerClimaMultiplesCiudades()
-  // ya captura los errores de cada ciudad individualmente y no relanza.
-  const resultados = await obtenerClimaMultiplesCiudades(ciudades);
-  renderComparacion(resultados);
-  botonComparar.disabled = false;
+  // obtenerClimaMultiplesCiudades() ya captura los errores de cada ciudad
+  // individualmente (no relanza), pero igual usamos try/finally: si algo
+  // inesperado fallara, el botón no debe quedar bloqueado para siempre.
+  try {
+    const resultados = await obtenerClimaMultiplesCiudades(ciudades);
+    renderComparacion(resultados);
+  } catch (error) {
+    mostrarError(contenedorComparar, "Ocurrió un error inesperado al comparar. Intenta de nuevo.");
+  } finally {
+    botonComparar.disabled = false;
+  }
 }
 
 function renderComparacion(resultados) {
