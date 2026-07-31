@@ -1,3 +1,15 @@
+/* ====== Variables globales de diseño ====== */
+:root {
+  --color-primario: #6c5ce7;
+  --color-secundario: #74ebd5;
+  --color-texto: #2c3e50;
+  --color-texto-suave: #5a6a7a;
+  --color-error: #e74c3c;
+  --color-fondo-tarjeta: rgba(255, 255, 255, 0.9);
+  --radio-borde: 16px;
+  --sombra: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
 /* ====== Reset básico ====== */
 * {
   margin: 0;
@@ -7,43 +19,92 @@
 
 body {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
-
-  /* Gradiente suave de fondo */
   background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
-  padding: 20px;
+  color: var(--color-texto);
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
 }
 
-/* ====== Tarjeta principal ====== */
-.weather-card {
+/* ====== Contenedor principal ====== */
+.app {
   width: 100%;
-  max-width: 400px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  padding: 32px 24px;
+  max-width: 720px;
+}
+
+.app-header {
   text-align: center;
-  transition: transform 0.2s ease;
+  color: #fff;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .title {
-  font-size: 1.6rem;
-  color: #2c3e50;
-  margin-bottom: 24px;
+  font-size: 2rem;
+  margin-bottom: 6px;
 }
 
-/* ====== Buscador ====== */
+.subtitle {
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+/* ====== Pestañas de navegación ====== */
+.tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.35);
+  padding: 6px;
+  border-radius: var(--radio-borde);
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: var(--color-primario);
+}
+
+.tab-btn:not(.active):hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ====== Paneles (uno visible a la vez) ====== */
+.tab-panel {
+  display: none;
+  background: var(--color-fondo-tarjeta);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radio-borde);
+  box-shadow: var(--sombra);
+  padding: 28px 22px;
+}
+
+.tab-panel.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ====== Buscador (reutilizado en los 3 paneles) ====== */
 .search-box {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
 }
 
-#city-input {
+.search-box input {
   flex: 1;
   padding: 12px 14px;
   border: 1px solid #dcdfe4;
@@ -53,77 +114,196 @@ body {
   transition: border-color 0.2s ease;
 }
 
-#city-input:focus {
-  border-color: #74ebd5;
+.search-box input:focus {
+  border-color: var(--color-secundario);
 }
 
-#search-btn {
+.search-box button {
   padding: 12px 18px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #6c5ce7, #74ebd5);
+  background: linear-gradient(135deg, var(--color-primario), var(--color-secundario));
   color: #fff;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition: opacity 0.2s ease, transform 0.1s ease;
 }
 
-#search-btn:hover {
+.search-box button:hover {
   opacity: 0.9;
 }
 
-#search-btn:active {
+.search-box button:active {
   transform: scale(0.97);
 }
 
-/* ====== Contenedor de resultados ====== */
-.result-container {
-  min-height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.search-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
+.hint-text {
+  font-size: 0.82rem;
+  color: var(--color-texto-suave);
+  margin-bottom: 16px;
+}
+
+/* ====== Estados compartidos: placeholder, carga, error ====== */
 .placeholder-text {
-  color: #7f8c8d;
+  color: var(--color-texto-suave);
   font-size: 0.95rem;
+  text-align: center;
+  padding: 20px 0;
 }
 
 .loading-text {
-  color: #6c5ce7;
+  color: var(--color-primario);
   font-weight: 500;
+  text-align: center;
+  padding: 20px 0;
   animation: pulse 1.2s infinite ease-in-out;
 }
 
 .error-text {
-  color: #e74c3c;
+  color: var(--color-error);
   font-weight: 500;
   line-height: 1.4;
+  text-align: center;
+  padding: 12px 0;
 }
 
-/* ====== Resultado del clima ====== */
+/* ====== Panel 1: Clima actual ====== */
 .weather-result {
-  width: 100%;
+  text-align: center;
   animation: fadeIn 0.35s ease;
 }
 
 .city-name {
-  font-size: 1.3rem;
-  color: #2c3e50;
-  margin-bottom: 8px;
+  font-size: 1.4rem;
+  margin-bottom: 6px;
 }
 
 .temperature {
-  font-size: 2.6rem;
+  font-size: 2.8rem;
   font-weight: 700;
-  color: #6c5ce7;
+  color: var(--color-primario);
+  line-height: 1;
   margin-bottom: 4px;
 }
 
 .description {
   font-size: 1rem;
-  color: #34495e;
+  color: var(--color-texto-suave);
   text-transform: capitalize;
+  margin-bottom: 20px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.detail-item {
+  background: #f4f3ff;
+  border-radius: 12px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-icon {
+  font-size: 1.2rem;
+}
+
+.detail-label {
+  font-size: 0.72rem;
+  color: var(--color-texto-suave);
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+/* ====== Panel 2: Pronóstico 5 días ====== */
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.forecast-card {
+  background: #f4f3ff;
+  border-radius: 12px;
+  padding: 14px 8px;
+  text-align: center;
+}
+
+.forecast-day {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  margin-bottom: 6px;
+}
+
+.forecast-desc {
+  font-size: 0.75rem;
+  color: var(--color-texto-suave);
+  min-height: 32px;
+}
+
+.forecast-temps {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.temp-max { color: var(--color-error); }
+.temp-min { color: #3498db; }
+
+.forecast-precip {
+  font-size: 0.75rem;
+  color: var(--color-texto-suave);
+}
+
+/* ====== Panel 3: Comparar ciudades ====== */
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.compare-card {
+  background: #f4f3ff;
+  border-radius: 12px;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.compare-card-error {
+  background: #fdecea;
+}
+
+.compare-card .city-name {
+  font-size: 1rem;
+}
+
+.compare-card .temperature {
+  font-size: 1.8rem;
+  margin: 4px 0;
+}
+
+.compare-detail {
+  font-size: 0.78rem;
+  color: var(--color-texto-suave);
+  margin-top: 6px;
 }
 
 /* ====== Animaciones ====== */
@@ -138,16 +318,21 @@ body {
 }
 
 /* ====== Responsivo ====== */
-@media (max-width: 420px) {
-  .weather-card {
-    padding: 24px 16px;
+@media (max-width: 480px) {
+  .tab-btn {
+    font-size: 0.78rem;
+    padding: 8px 6px;
   }
 
   .search-box {
     flex-direction: column;
   }
 
-  #search-btn {
-    width: 100%;
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .temperature {
+    font-size: 2.2rem;
   }
 }

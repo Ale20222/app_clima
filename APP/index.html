@@ -8,24 +8,52 @@
 </head>
 <body>
 
-  <main class="weather-card">
-    <h1 class="title">🌤️ Clima Ahora</h1>
+  <main class="app">
+    <header class="app-header">
+      <h1 class="title">🌤️ App del Clima</h1>
+      <p class="subtitle">Clima actual, pronóstico de 5 días y comparación entre ciudades</p>
+    </header>
 
-    <!-- Formulario de búsqueda -->
-    <div class="search-box">
-      <input
-        type="text"
-        id="city-input"
-        placeholder="Escribe una ciudad..."
-        autocomplete="off"
-      >
-      <button id="search-btn" type="button">Buscar</button>
-    </div>
+    <!-- Navegación entre las 3 funcionalidades -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="actual" type="button">Clima actual</button>
+      <button class="tab-btn" data-tab="pronostico" type="button">Pronóstico 5 días</button>
+      <button class="tab-btn" data-tab="comparar" type="button">Comparar ciudades</button>
+    </nav>
 
-    <!-- Contenedor donde se renderiza el resultado, la carga o el error -->
-    <div id="result-container" class="result-container">
-      <p class="placeholder-text">Ingresa una ciudad para ver el clima 🌎</p>
-    </div>
+    <!-- Panel 1: Clima actual de una ciudad -->
+    <section class="tab-panel active" id="panel-actual">
+      <div class="search-box">
+        <input type="text" id="city-input" placeholder="Escribe una ciudad..." autocomplete="off">
+        <button id="search-btn" type="button">Buscar</button>
+      </div>
+      <div id="result-container" class="result-container">
+        <p class="placeholder-text">Ingresa una ciudad para ver el clima 🌎</p>
+      </div>
+    </section>
+
+    <!-- Panel 2: Pronóstico de 5 días -->
+    <section class="tab-panel" id="panel-pronostico">
+      <div class="search-box">
+        <input type="text" id="forecast-input" placeholder="Escribe una ciudad..." autocomplete="off">
+        <button id="forecast-btn" type="button">Ver pronóstico</button>
+      </div>
+      <div id="forecast-container" class="forecast-container">
+        <p class="placeholder-text">Consulta el pronóstico de 5 días de una ciudad 📅</p>
+      </div>
+    </section>
+
+    <!-- Panel 3: Comparar varias ciudades -->
+    <section class="tab-panel" id="panel-comparar">
+      <div class="search-box">
+        <input type="text" id="compare-input" placeholder="Ej: Bogotá, Madrid, Tokio" autocomplete="off">
+        <button id="compare-btn" type="button">Comparar</button>
+      </div>
+      <p class="hint-text">Separa cada ciudad con una coma</p>
+      <div id="compare-container" class="compare-container">
+        <p class="placeholder-text">Compara el clima de varias ciudades a la vez 🌍</p>
+      </div>
+    </section>
   </main>
 
   <!-- type="module" permite usar import/export entre archivos -->
