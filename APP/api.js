@@ -70,19 +70,29 @@ async function geocodificarCiudad(ciudad) {
  * humedad, viento y precipitación. Usa caché de 1 hora.
  *
  * @param {string} ciudad
+ * @param {{forzarActualizacion?: boolean}} [opciones] - si forzarActualizacion
+ *   es true, se ignora el caché y se consulta la API siempre (usado por el
+ *   botón "Actualizar" de la interfaz).
  * @returns {Promise<{ciudad:string, temperatura:number, descripcion:string,
- *                     humedad:number, viento:number, precipitacion:number}>}
+ *                     humedad:number, viento:number, precipitacion:number,
+ *                     _cache:{desdeCache:boolean, edadMs:number}}>}
  */
-export async function obtenerClima(ciudad) {
+export async function obtenerClima(ciudad, opciones = {}) {
+  const { forzarActualizacion = false } = opciones;
   const ciudadLimpia = ciudad ? ciudad.trim() : "";
   if (!ciudadLimpia) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
   // 1. Revisamos si ya tenemos este resultado en caché y sigue vigente
+  // (a menos que el usuario haya pedido explícitamente forzar la actualización)
   const clave = generarClave("clima", ciudadLimpia);
-  const enCache = obtenerDeCache(clave);
-  if (enCache) return enCache;
+  if (!forzarActualizacion) {
+    const enCache = obtenerDeCache(clave);
+    if (enCache) {
+      return { ...enCache.datos, _cache: { desdeCache: true, edadMs: enCache.edadMs } };
+    }
+  }
 
   // 2. Geocodificación
   const { latitude: lat, longitude: lon, name: nombreCiudad } =
@@ -132,27 +142,34 @@ export async function obtenerClima(ciudad) {
     precipitacion: precipitation,
   };
 
-  // 4. Guardamos en caché para futuras consultas dentro de la próxima hora
+  // 4. Guardamos en caché (10 min) para futuras consultas
   guardarEnCache(clave, resultado);
-  return resultado;
+  return { ...resultado, _cache: { desdeCache: false, edadMs: 0 } };
 }
 
 /**
  * Obtiene el pronóstico de 5 días de una ciudad. Usa caché de 1 hora.
  *
  * @param {string} ciudad
+ * @param {{forzarActualizacion?: boolean}} [opciones]
  * @returns {Promise<{ciudad:string, dias: Array<{fecha:string, tempMax:number,
- *                     tempMin:number, descripcion:string, precipitacion:number}>}>}
+ *                     tempMin:number, descripcion:string, precipitacion:number}>,
+ *                     _cache:{desdeCache:boolean, edadMs:number}}>}
  */
-export async function obtenerPronostico5Dias(ciudad) {
+export async function obtenerPronostico5Dias(ciudad, opciones = {}) {
+  const { forzarActualizacion = false } = opciones;
   const ciudadLimpia = ciudad ? ciudad.trim() : "";
   if (!ciudadLimpia) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
   const clave = generarClave("pronostico", ciudadLimpia);
-  const enCache = obtenerDeCache(clave);
-  if (enCache) return enCache;
+  if (!forzarActualizacion) {
+    const enCache = obtenerDeCache(clave);
+    if (enCache) {
+      return { ...enCache.datos, _cache: { desdeCache: true, edadMs: enCache.edadMs } };
+    }
+  }
 
   const { latitude: lat, longitude: lon, name: nombreCiudad } =
     await geocodificarCiudad(ciudadLimpia);
@@ -195,7 +212,7 @@ export async function obtenerPronostico5Dias(ciudad) {
 
   const resultado = { ciudad: nombreCiudad, dias };
   guardarEnCache(clave, resultado);
-  return resultado;
+  return { ...resultado, _cache: { desdeCache: false, edadMs: 0 } };
 }
 
 /**
@@ -204,12 +221,13 @@ export async function obtenerPronostico5Dias(ciudad) {
  * se reporta como un objeto con `error` en lugar de detener todo el lote.
  *
  * @param {string[]} ciudades
+ * @param {{forzarActualizacion?: boolean}} [opciones]
  * @returns {Promise<Array<{ciudad:string, temperatura:number, descripcion:string,
  *                    humedad:number, viento:number, precipitacion:number} |
  *                    {ciudad:string, error:string}>>}
  */
-export async function obtenerClimaMultiplesCiudades(ciudades) {
-  const resultados = await Promise.allSettled(ciudades.map((c) => obtenerClima(c)));
+export async function obtenerClimaMultiplesCiudades(ciudades, opciones = {}) {
+  const resultados = await Promise.allSettled(ciudades.map((c) => obtenerClima(c, opciones)));
 
   return resultados.map((resultado, i) => {
     if (resultado.status === "fulfilled") {

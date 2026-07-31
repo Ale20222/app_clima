@@ -11,8 +11,21 @@
  * Map en memoria como respaldo, para que la app nunca se rompa por esto.
  */
 
-const DURACION_CACHE_MS = 60 * 60 * 1000; // 1 hora
+// Duración de caché según el tipo de dato (se extrae del prefijo de la clave,
+// ej. "clima:bogota" -> "clima"). La temperatura y sobre todo la precipitación
+// cambian en minutos, así que el clima actual necesita un TTL mucho más corto
+// que el pronóstico de 5 días, que varía más lento.
+const DURACIONES_MS = {
+  clima: 10 * 60 * 1000,        // 10 minutos
+  pronostico: 60 * 60 * 1000,   // 1 hora
+};
+const DURACION_POR_DEFECTO_MS = 60 * 60 * 1000; // por si aparece un tipo nuevo
 const PREFIJO = "clima_cache_";
+
+function duracionParaClave(clave) {
+  const tipo = clave.split(":")[0];
+  return DURACIONES_MS[tipo] ?? DURACION_POR_DEFECTO_MS;
+}
 
 // Respaldo en memoria (se usa solo si localStorage falla)
 const almacenMemoria = new Map();
@@ -34,12 +47,18 @@ function localStorageDisponible() {
 const usarLocalStorage = typeof window !== "undefined" && localStorageDisponible();
 
 /**
- * Devuelve los datos cacheados para una clave si aún son válidos (< 1 hora).
+ * Devuelve los datos cacheados para una clave si aún son válidos.
+ * La duración de validez depende del tipo (ver DURACIONES_MS): el clima
+ * actual expira en 10 minutos, el pronóstico en 1 hora.
+ *
  * @param {string} clave
- * @returns {any|null}
+ * @returns {{datos: any, edadMs: number}|null} null si no hay caché vigente;
+ *   si lo hay, además de los datos se devuelve `edadMs` (hace cuánto se guardó),
+ *   útil para mostrarle al usuario "datos de hace X minutos".
  */
 export function obtenerDeCache(clave) {
   const ahora = Date.now();
+  const duracion = duracionParaClave(clave);
 
   if (usarLocalStorage) {
     const crudo = window.localStorage.getItem(PREFIJO + clave);
@@ -54,26 +73,28 @@ export function obtenerDeCache(clave) {
       return null;
     }
 
-    if (ahora - entrada.timestamp > DURACION_CACHE_MS) {
+    const edadMs = ahora - entrada.timestamp;
+    if (edadMs > duracion) {
       window.localStorage.removeItem(PREFIJO + clave);
       return null;
     }
 
-    console.log(`[cache] HIT para "${clave}"`);
-    return entrada.datos;
+    console.log(`[cache] HIT para "${clave}" (edad: ${Math.round(edadMs / 1000)}s)`);
+    return { datos: entrada.datos, edadMs };
   }
 
   // --- Respaldo en memoria ---
   const entrada = almacenMemoria.get(clave);
   if (!entrada) return null;
 
-  if (ahora - entrada.timestamp > DURACION_CACHE_MS) {
+  const edadMs = ahora - entrada.timestamp;
+  if (edadMs > duracion) {
     almacenMemoria.delete(clave);
     return null;
   }
 
-  console.log(`[cache] HIT (memoria) para "${clave}"`);
-  return entrada.datos;
+  console.log(`[cache] HIT (memoria) para "${clave}" (edad: ${Math.round(edadMs / 1000)}s)`);
+  return { datos: entrada.datos, edadMs };
 }
 
 /**

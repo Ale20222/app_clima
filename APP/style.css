@@ -143,6 +143,37 @@ body {
   cursor: not-allowed;
 }
 
+/* Botón "🔄" para forzar actualización ignorando el caché.
+   Se ve distinto al botón principal para dejar claro que es una acción
+   secundaria/opcional. */
+.search-box button.btn-refresh {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--color-primario);
+  font-size: 1.05rem;
+  padding: 12px 14px;
+}
+
+.search-box button.btn-refresh:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* Indicador visible de si el dato mostrado viene del caché o es fresco */
+.cache-indicator {
+  font-size: 0.78rem;
+  color: var(--color-texto-suave);
+  margin-bottom: 12px;
+}
+
+.cache-indicator-fresh {
+  color: #27ae60;
+}
+
+.cache-indicator-compact {
+  font-size: 0.68rem;
+  margin-bottom: 6px;
+}
+
 .hint-text {
   font-size: 0.82rem;
   color: var(--color-texto-suave);
