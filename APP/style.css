@@ -155,6 +155,56 @@ body {
   opacity: 0.9;
 }
 
+.search-history {
+  position: relative;
+  background: #fff;
+  border: 1px solid #dcdfe4;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.search-history.hidden {
+  display: none;
+}
+
+.search-history .history-title {
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--color-texto-suave);
+  border-bottom: 1px solid #f0f0f4;
+}
+
+.search-history ul {
+  list-style: none;
+}
+
+.search-history li {
+  margin: 0;
+}
+
+.search-history .history-item {
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--color-texto);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.search-history .history-item:hover {
+  background: #f7f7ff;
+}
+
+.search-history .history-item:focus {
+  outline: none;
+  background: #eef4ff;
+}
+
 .search-box button:active {
   transform: scale(0.97);
 }

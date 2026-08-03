@@ -1,7 +1,4 @@
-/**
- * cache.js
- * Caché de resultados de clima/pronóstico con expiración configurable.
- *
+/*
  * Estrategia de almacenamiento: se intenta usar localStorage para que el
  * caché sobreviva a recargas de página. Si no está disponible (modo
  * incógnito restrictivo, vista en iframe con sandbox), se usa
@@ -89,6 +86,32 @@ export function guardarEnCache(clave, datos) {
   }
 
   almacenMemoria.set(clave, entrada);
+}
+
+/**
+ * Devuelve la entrada de caché SIN importar si ya expiró.
+ *
+ * Se usa solo como último recurso cuando la API falla (sin internet, el
+ * servidor no responde, etc.): en ese momento es mejor mostrarle al
+ * usuario el último dato conocido -aunque esté vencido- que no mostrarle
+ * nada. Quien llame a esta función es responsable de avisar al usuario
+ * que el dato podría estar desactualizado.
+ *
+ * @param {string} clave
+ * @returns {{datos: any, timestamp: number}|null}
+ */
+export function obtenerEntradaCacheSinExpirar(clave) {
+  if (usarLocalStorage) {
+    const crudo = window.localStorage.getItem(PREFIJO + clave);
+    if (!crudo) return null;
+    try {
+      return JSON.parse(crudo);
+    } catch {
+      return null;
+    }
+  }
+
+  return almacenMemoria.get(clave) ?? null;
 }
 
 /**

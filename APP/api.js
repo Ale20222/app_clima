@@ -5,7 +5,12 @@
  * No toca el DOM; solo obtiene y da forma a los datos.
  */
 
-import { obtenerEntradaCache, guardarEnCache, generarClave } from "./cache.js";
+import {
+  obtenerEntradaCache,
+  obtenerEntradaCacheSinExpirar,
+  guardarEnCache,
+  generarClave,
+} from "./cache.js";
 
 // Duraciones de caché por tipo de dato: el clima actual (sobre todo la
 // precipitación) cambia mucho más rápido que un pronóstico a 5 días.
@@ -98,57 +103,76 @@ export async function obtenerClima(ciudad, { forzarActualizacion = false } = {})
     }
   }
 
-  // 2. Geocodificación
-  const { latitude: lat, longitude: lon, name: nombreCiudad } =
-    await geocodificarCiudad(ciudadLimpia);
-
-  // 3. Clima actual, pidiendo explícitamente humedad, viento y precipitación
-  let respuestaClima;
+  // 2. No estaba en caché (o se forzó actualizar): vamos a la API.
+  //    Envolvemos todo en try/catch para poder recurrir a un dato viejo
+  //    en caché si la API falla, en vez de dejar al usuario sin nada.
   try {
-    respuestaClima = await fetch(
-      `${URL_CLIMA}?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,weather_code` +
-      `&timezone=auto`
-    );
-  } catch {
-    throw new Error("Error de red al obtener el clima. Intenta nuevamente.");
+    // 2a. Geocodificación
+    const { latitude: lat, longitude: lon, name: nombreCiudad } =
+      await geocodificarCiudad(ciudadLimpia);
+
+    // 2b. Clima actual, pidiendo explícitamente humedad, viento y precipitación
+    let respuestaClima;
+    try {
+      respuestaClima = await fetch(
+        `${URL_CLIMA}?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,weather_code` +
+        `&timezone=auto`
+      );
+    } catch {
+      throw new Error("Error de red al obtener el clima. Intenta nuevamente.");
+    }
+
+    if (!respuestaClima.ok) {
+      throw new Error("No se pudo obtener el clima en este momento.");
+    }
+
+    let datosClima;
+    try {
+      datosClima = await respuestaClima.json();
+    } catch {
+      throw new Error("La respuesta del servicio de clima no es válida.");
+    }
+
+    if (!datosClima.current) {
+      throw new Error("El servicio de clima no devolvió información válida.");
+    }
+
+    const {
+      temperature_2m,
+      relative_humidity_2m,
+      wind_speed_10m,
+      precipitation,
+      weather_code,
+    } = datosClima.current;
+
+    const resultado = {
+      ciudad: nombreCiudad,
+      temperatura: temperature_2m,
+      descripcion: traducirWeatherCode(weather_code),
+      humedad: relative_humidity_2m,
+      viento: wind_speed_10m,
+      precipitacion: precipitation,
+    };
+
+    // 3. Guardamos en caché para futuras consultas dentro de los próximos 10 min
+    guardarEnCache(clave, resultado);
+    return { ...resultado, _desdeCache: false, _cacheTimestamp: Date.now() };
+  } catch (error) {
+    // 4. La API falló: como último recurso, buscamos si hay ALGÚN dato
+    //    guardado para esta ciudad, aunque ya haya expirado. Es mejor
+    //    mostrar un dato antiguo (avisando que lo es) que un error vacío.
+    const entradaVieja = obtenerEntradaCacheSinExpirar(clave);
+    if (entradaVieja) {
+      return {
+        ...entradaVieja.datos,
+        _desdeCache: true,
+        _cacheStale: true,
+        _cacheTimestamp: entradaVieja.timestamp,
+      };
+    }
+    throw error;
   }
-
-  if (!respuestaClima.ok) {
-    throw new Error("No se pudo obtener el clima en este momento.");
-  }
-
-  let datosClima;
-  try {
-    datosClima = await respuestaClima.json();
-  } catch {
-    throw new Error("La respuesta del servicio de clima no es válida.");
-  }
-
-  if (!datosClima.current) {
-    throw new Error("El servicio de clima no devolvió información válida.");
-  }
-
-  const {
-    temperature_2m,
-    relative_humidity_2m,
-    wind_speed_10m,
-    precipitation,
-    weather_code,
-  } = datosClima.current;
-
-  const resultado = {
-    ciudad: nombreCiudad,
-    temperatura: temperature_2m,
-    descripcion: traducirWeatherCode(weather_code),
-    humedad: relative_humidity_2m,
-    viento: wind_speed_10m,
-    precipitacion: precipitation,
-  };
-
-  // 4. Guardamos en caché para futuras consultas dentro de los próximos 10 min
-  guardarEnCache(clave, resultado);
-  return { ...resultado, _desdeCache: false, _cacheTimestamp: Date.now() };
 }
 
 /**
@@ -165,51 +189,68 @@ export async function obtenerPronostico5Dias(ciudad) {
   }
 
   const clave = generarClave("pronostico", ciudadLimpia);
-  const enCache = obtenerDeCache(clave);
-  if (enCache) return enCache;
+  const entradaCache = obtenerEntradaCache(clave, DURACION_PRONOSTICO_MS);
+  if (entradaCache) {
+    return { ...entradaCache.datos, _desdeCache: true, _cacheTimestamp: entradaCache.timestamp };
+  }
 
-  const { latitude: lat, longitude: lon, name: nombreCiudad } =
-    await geocodificarCiudad(ciudadLimpia);
-
-  let respuesta;
   try {
-    respuesta = await fetch(
-      `${URL_CLIMA}?latitude=${lat}&longitude=${lon}` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum` +
-      `&timezone=auto&forecast_days=5`
-    );
-  } catch {
-    throw new Error("Error de red al obtener el pronóstico. Intenta nuevamente.");
+    const { latitude: lat, longitude: lon, name: nombreCiudad } =
+      await geocodificarCiudad(ciudadLimpia);
+
+    let respuesta;
+    try {
+      respuesta = await fetch(
+        `${URL_CLIMA}?latitude=${lat}&longitude=${lon}` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum` +
+        `&timezone=auto&forecast_days=5`
+      );
+    } catch {
+      throw new Error("Error de red al obtener el pronóstico. Intenta nuevamente.");
+    }
+
+    if (!respuesta.ok) {
+      throw new Error("No se pudo obtener el pronóstico en este momento.");
+    }
+
+    let datos;
+    try {
+      datos = await respuesta.json();
+    } catch {
+      throw new Error("La respuesta del pronóstico no es válida.");
+    }
+
+    if (!datos.daily) {
+      throw new Error("El servicio de pronóstico no devolvió información válida.");
+    }
+
+    const { time, weather_code, temperature_2m_max, temperature_2m_min, precipitation_sum } = datos.daily;
+
+    const dias = time.map((fecha, i) => ({
+      fecha,
+      tempMax: temperature_2m_max[i],
+      tempMin: temperature_2m_min[i],
+      descripcion: traducirWeatherCode(weather_code[i]),
+      precipitacion: precipitation_sum[i],
+    }));
+
+    const resultado = { ciudad: nombreCiudad, dias };
+    guardarEnCache(clave, resultado);
+    return { ...resultado, _desdeCache: false, _cacheTimestamp: Date.now() };
+  } catch (error) {
+    // La API falló: recurrimos al último pronóstico guardado, aunque
+    // haya expirado, en vez de dejar al usuario sin nada.
+    const entradaVieja = obtenerEntradaCacheSinExpirar(clave);
+    if (entradaVieja) {
+      return {
+        ...entradaVieja.datos,
+        _desdeCache: true,
+        _cacheStale: true,
+        _cacheTimestamp: entradaVieja.timestamp,
+      };
+    }
+    throw error;
   }
-
-  if (!respuesta.ok) {
-    throw new Error("No se pudo obtener el pronóstico en este momento.");
-  }
-
-  let datos;
-  try {
-    datos = await respuesta.json();
-  } catch {
-    throw new Error("La respuesta del pronóstico no es válida.");
-  }
-
-  if (!datos.daily) {
-    throw new Error("El servicio de pronóstico no devolvió información válida.");
-  }
-
-  const { time, weather_code, temperature_2m_max, temperature_2m_min, precipitation_sum } = datos.daily;
-
-  const dias = time.map((fecha, i) => ({
-    fecha,
-    tempMax: temperature_2m_max[i],
-    tempMin: temperature_2m_min[i],
-    descripcion: traducirWeatherCode(weather_code[i]),
-    precipitacion: precipitation_sum[i],
-  }));
-
-  const resultado = { ciudad: nombreCiudad, dias };
-  guardarEnCache(clave, resultado);
-  return resultado;
 }
 
 /**

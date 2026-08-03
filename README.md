@@ -130,6 +130,12 @@ El `weathercode` es un valor numérico estandarizado (tabla WMO) que la propia a
 
 ---
 
+## Caché y buena práctica para clase
+
+La aplicación guarda cada consulta en un `Map` en memoria con una clave normalizada por tipo de consulta y ciudad. Antes de llamar a la API verifica que la entrada siga vigente: el clima actual dura 10 minutos y el pronóstico una hora. Si la API falla, devuelve la última respuesta guardada, incluso si ya venció, como respaldo temporal.
+
+**Idea clave:** una caché debe tener un tiempo de expiración (TTL). Guardar datos sin definir cuánto tiempo son confiables puede mostrar información desactualizada como si fuera actual; los datos vencidos solo deben usarse de forma explícita, por ejemplo ante un fallo de red.
+
 ## Mejoras Futuras
 
 - 🌡️ Permitir alternar entre Celsius y Fahrenheit.

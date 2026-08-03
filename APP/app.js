@@ -49,11 +49,20 @@ botonesTab.forEach((boton) => {
 const inputCiudad = document.getElementById("city-input");
 const botonBuscar = document.getElementById("search-btn");
 const contenedorResultado = document.getElementById("result-container");
+const historyCityContainer = document.getElementById("city-history");
+
+const HISTORIAL_CLIMA_KEY = "clima_historial_clima";
+const HISTORIAL_PRONOSTICO_KEY = "clima_historial_pronostico";
+const HISTORIAL_COMPARAR_KEY = "clima_historial_comparar";
+const MAX_HISTORIAL = 10;
 
 botonBuscar.addEventListener("click", manejarBusquedaActual);
 inputCiudad.addEventListener("keydown", (e) => {
   if (e.key === "Enter") manejarBusquedaActual();
 });
+inputCiudad.addEventListener("focus", () => mostrarHistorial(inputCiudad, HISTORIAL_CLIMA_KEY, historyCityContainer));
+inputCiudad.addEventListener("input", () => mostrarHistorial(inputCiudad, HISTORIAL_CLIMA_KEY, historyCityContainer));
+inputCiudad.addEventListener("blur", () => ocultarHistorialConRetraso(historyCityContainer));
 
 async function manejarBusquedaActual() {
   const ciudad = inputCiudad.value.trim();
@@ -62,6 +71,7 @@ async function manejarBusquedaActual() {
     return;
   }
 
+  guardarHistorialBusqueda(HISTORIAL_CLIMA_KEY, ciudad);
   botonBuscar.disabled = true;
   contenedorResultado.innerHTML = `<p class="loading-text">Buscando clima... ⏳</p>`;
 
@@ -75,10 +85,76 @@ async function manejarBusquedaActual() {
   }
 }
 
+function obtenerHistorial(key) {
+  const crudo = window.localStorage.getItem(key);
+  if (!crudo) return [];
+  try {
+    return JSON.parse(crudo) || [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarHistorialBusqueda(key, valor) {
+  const texto = valor.trim();
+  if (!texto) return;
+  const historial = obtenerHistorial(key).filter((item) => item.toLowerCase() !== texto.toLowerCase());
+  historial.unshift(texto);
+  if (historial.length > MAX_HISTORIAL) historial.length = MAX_HISTORIAL;
+  window.localStorage.setItem(key, JSON.stringify(historial));
+}
+
+function mostrarHistorial(input, key, contenedor) {
+  const valor = input.value.trim().toLowerCase();
+  const historial = obtenerHistorial(key);
+  if (historial.length === 0) {
+    contenedor.classList.add("hidden");
+    contenedor.innerHTML = "";
+    return;
+  }
+
+  const coincidencias = valor
+    ? historial.filter((item) => item.toLowerCase().includes(valor))
+    : historial;
+
+  if (coincidencias.length === 0) {
+    contenedor.classList.add("hidden");
+    contenedor.innerHTML = "";
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="history-title">Historial reciente</div>
+    <ul>
+      ${coincidencias
+        .map(
+          (item) =>
+            `<li><button type="button" class="history-item">${item}</button></li>`
+        )
+        .join("")}
+    </ul>
+  `;
+  contenedor.classList.remove("hidden");
+
+  contenedor.querySelectorAll(".history-item").forEach((boton) => {
+    boton.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      input.value = boton.textContent;
+      input.focus();
+      contenedor.classList.add("hidden");
+    });
+  });
+}
+
+function ocultarHistorialConRetraso(contenedor) {
+  setTimeout(() => contenedor.classList.add("hidden"), 150);
+}
+
 function renderClimaActual(clima) {
-  const { ciudad, temperatura, descripcion, humedad, viento, precipitacion } = clima;
+  const { ciudad, temperatura, descripcion, humedad, viento, precipitacion, _cacheStale } = clima;
   contenedorResultado.innerHTML = `
     <div class="weather-result">
+      ${_cacheStale ? avisoCacheVieja() : ""}
       <h2 class="city-name">${ciudad}</h2>
       <p class="temperature">${temperatura}°C</p>
       <p class="description">${descripcion}</p>
@@ -107,11 +183,15 @@ function renderClimaActual(clima) {
 const inputPronostico = document.getElementById("forecast-input");
 const botonPronostico = document.getElementById("forecast-btn");
 const contenedorPronostico = document.getElementById("forecast-container");
+const historyForecastContainer = document.getElementById("forecast-history");
 
 botonPronostico.addEventListener("click", manejarPronostico);
 inputPronostico.addEventListener("keydown", (e) => {
   if (e.key === "Enter") manejarPronostico();
 });
+inputPronostico.addEventListener("focus", () => mostrarHistorial(inputPronostico, HISTORIAL_PRONOSTICO_KEY, historyForecastContainer));
+inputPronostico.addEventListener("input", () => mostrarHistorial(inputPronostico, HISTORIAL_PRONOSTICO_KEY, historyForecastContainer));
+inputPronostico.addEventListener("blur", () => ocultarHistorialConRetraso(historyForecastContainer));
 
 async function manejarPronostico() {
   const ciudad = inputPronostico.value.trim();
@@ -120,6 +200,7 @@ async function manejarPronostico() {
     return;
   }
 
+  guardarHistorialBusqueda(HISTORIAL_PRONOSTICO_KEY, ciudad);
   botonPronostico.disabled = true;
   contenedorPronostico.innerHTML = `<p class="loading-text">Cargando pronóstico... ⏳</p>`;
 
@@ -134,7 +215,7 @@ async function manejarPronostico() {
 }
 
 function renderPronostico(pronostico) {
-  const { ciudad, dias } = pronostico;
+  const { ciudad, dias, _cacheStale } = pronostico;
 
   const tarjetas = dias
     .map((dia) => {
@@ -160,6 +241,7 @@ function renderPronostico(pronostico) {
     .join("");
 
   contenedorPronostico.innerHTML = `
+    ${_cacheStale ? avisoCacheVieja() : ""}
     <h2 class="city-name">${ciudad}</h2>
     <div class="forecast-grid">${tarjetas}</div>
   `;
@@ -169,11 +251,15 @@ function renderPronostico(pronostico) {
 const inputComparar = document.getElementById("compare-input");
 const botonComparar = document.getElementById("compare-btn");
 const contenedorComparar = document.getElementById("compare-container");
+const historyCompareContainer = document.getElementById("compare-history");
 
 botonComparar.addEventListener("click", manejarComparacion);
 inputComparar.addEventListener("keydown", (e) => {
   if (e.key === "Enter") manejarComparacion();
 });
+inputComparar.addEventListener("focus", () => mostrarHistorial(inputComparar, HISTORIAL_COMPARAR_KEY, historyCompareContainer));
+inputComparar.addEventListener("input", () => mostrarHistorial(inputComparar, HISTORIAL_COMPARAR_KEY, historyCompareContainer));
+inputComparar.addEventListener("blur", () => ocultarHistorialConRetraso(historyCompareContainer));
 
 async function manejarComparacion() {
   const texto = inputComparar.value.trim();
@@ -187,6 +273,7 @@ async function manejarComparacion() {
     return;
   }
 
+  guardarHistorialBusqueda(HISTORIAL_COMPARAR_KEY, texto);
   botonComparar.disabled = true;
   contenedorComparar.innerHTML = `<p class="loading-text">Comparando ciudades... ⏳</p>`;
 
@@ -236,4 +323,12 @@ function renderComparacion(resultados) {
  */
 function mostrarError(contenedor, mensaje) {
   contenedor.innerHTML = `<p class="error-text">⚠️ ${mensaje}</p>`;
+}
+
+/**
+ * Aviso que se muestra cuando la API falló y estamos mostrando un dato
+ * guardado en caché aunque ya haya expirado (ver api.js / cache.js).
+ */
+function avisoCacheVieja() {
+  return `<p class="error-text">⚠️ No se pudo conectar con el servicio ahora mismo. Mostrando el último dato guardado.</p>`;
 }
