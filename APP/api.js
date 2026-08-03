@@ -5,7 +5,12 @@
  * No toca el DOM; solo obtiene y da forma a los datos.
  */
 
-import { obtenerDeCache, guardarEnCache, generarClave } from "./cache.js";
+import { obtenerEntradaCache, guardarEnCache, generarClave } from "./cache.js";
+
+// Duraciones de caché por tipo de dato: el clima actual (sobre todo la
+// precipitación) cambia mucho más rápido que un pronóstico a 5 días.
+const DURACION_CLIMA_MS = 10 * 60 * 1000;       // 10 minutos
+const DURACION_PRONOSTICO_MS = 60 * 60 * 1000;  // 1 hora
 
 const URL_GEOCODIFICACION = "https://geocoding-api.open-meteo.com/v1/search";
 const URL_CLIMA = "https://api.open-meteo.com/v1/forecast";
@@ -70,27 +75,26 @@ async function geocodificarCiudad(ciudad) {
  * humedad, viento y precipitación. Usa caché de 1 hora.
  *
  * @param {string} ciudad
- * @param {{forzarActualizacion?: boolean}} [opciones] - si forzarActualizacion
- *   es true, se ignora el caché y se consulta la API siempre (usado por el
- *   botón "Actualizar" de la interfaz).
  * @returns {Promise<{ciudad:string, temperatura:number, descripcion:string,
- *                     humedad:number, viento:number, precipitacion:number,
- *                     _cache:{desdeCache:boolean, edadMs:number}}>}
+ *                     humedad:number, viento:number, precipitacion:number}>}
  */
-export async function obtenerClima(ciudad, opciones = {}) {
-  const { forzarActualizacion = false } = opciones;
+export async function obtenerClima(ciudad, { forzarActualizacion = false } = {}) {
   const ciudadLimpia = ciudad ? ciudad.trim() : "";
   if (!ciudadLimpia) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
   // 1. Revisamos si ya tenemos este resultado en caché y sigue vigente
-  // (a menos que el usuario haya pedido explícitamente forzar la actualización)
+  //    (salvo que el usuario haya pedido forzar una actualización).
   const clave = generarClave("clima", ciudadLimpia);
   if (!forzarActualizacion) {
-    const enCache = obtenerDeCache(clave);
-    if (enCache) {
-      return { ...enCache.datos, _cache: { desdeCache: true, edadMs: enCache.edadMs } };
+    const entradaCache = obtenerEntradaCache(clave, DURACION_CLIMA_MS);
+    if (entradaCache) {
+      return {
+        ...entradaCache.datos,
+        _desdeCache: true,
+        _cacheTimestamp: entradaCache.timestamp,
+      };
     }
   }
 
@@ -142,34 +146,27 @@ export async function obtenerClima(ciudad, opciones = {}) {
     precipitacion: precipitation,
   };
 
-  // 4. Guardamos en caché (10 min) para futuras consultas
+  // 4. Guardamos en caché para futuras consultas dentro de los próximos 10 min
   guardarEnCache(clave, resultado);
-  return { ...resultado, _cache: { desdeCache: false, edadMs: 0 } };
+  return { ...resultado, _desdeCache: false, _cacheTimestamp: Date.now() };
 }
 
 /**
  * Obtiene el pronóstico de 5 días de una ciudad. Usa caché de 1 hora.
  *
  * @param {string} ciudad
- * @param {{forzarActualizacion?: boolean}} [opciones]
  * @returns {Promise<{ciudad:string, dias: Array<{fecha:string, tempMax:number,
- *                     tempMin:number, descripcion:string, precipitacion:number}>,
- *                     _cache:{desdeCache:boolean, edadMs:number}}>}
+ *                     tempMin:number, descripcion:string, precipitacion:number}>}>}
  */
-export async function obtenerPronostico5Dias(ciudad, opciones = {}) {
-  const { forzarActualizacion = false } = opciones;
+export async function obtenerPronostico5Dias(ciudad) {
   const ciudadLimpia = ciudad ? ciudad.trim() : "";
   if (!ciudadLimpia) {
     throw new Error("Debes ingresar el nombre de una ciudad.");
   }
 
   const clave = generarClave("pronostico", ciudadLimpia);
-  if (!forzarActualizacion) {
-    const enCache = obtenerDeCache(clave);
-    if (enCache) {
-      return { ...enCache.datos, _cache: { desdeCache: true, edadMs: enCache.edadMs } };
-    }
-  }
+  const enCache = obtenerDeCache(clave);
+  if (enCache) return enCache;
 
   const { latitude: lat, longitude: lon, name: nombreCiudad } =
     await geocodificarCiudad(ciudadLimpia);
@@ -212,7 +209,7 @@ export async function obtenerPronostico5Dias(ciudad, opciones = {}) {
 
   const resultado = { ciudad: nombreCiudad, dias };
   guardarEnCache(clave, resultado);
-  return { ...resultado, _cache: { desdeCache: false, edadMs: 0 } };
+  return resultado;
 }
 
 /**
@@ -221,13 +218,12 @@ export async function obtenerPronostico5Dias(ciudad, opciones = {}) {
  * se reporta como un objeto con `error` en lugar de detener todo el lote.
  *
  * @param {string[]} ciudades
- * @param {{forzarActualizacion?: boolean}} [opciones]
  * @returns {Promise<Array<{ciudad:string, temperatura:number, descripcion:string,
  *                    humedad:number, viento:number, precipitacion:number} |
  *                    {ciudad:string, error:string}>>}
  */
-export async function obtenerClimaMultiplesCiudades(ciudades, opciones = {}) {
-  const resultados = await Promise.allSettled(ciudades.map((c) => obtenerClima(c, opciones)));
+export async function obtenerClimaMultiplesCiudades(ciudades) {
+  const resultados = await Promise.allSettled(ciudades.map((c) => obtenerClima(c)));
 
   return resultados.map((resultado, i) => {
     if (resultado.status === "fulfilled") {

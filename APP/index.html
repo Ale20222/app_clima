@@ -12,6 +12,9 @@
     <header class="app-header">
       <h1 class="title">🌤️ App del Clima</h1>
       <p class="subtitle">Clima actual, pronóstico de 5 días y comparación entre ciudades</p>
+      <button id="clear-cache-btn" type="button" class="clear-cache-btn">
+        🗑️ Borrar caché guardado
+      </button>
     </header>
 
     <!-- Navegación entre las 3 funcionalidades -->
@@ -26,7 +29,6 @@
       <div class="search-box">
         <input type="text" id="city-input" placeholder="Escribe una ciudad..." autocomplete="off">
         <button id="search-btn" type="button">Buscar</button>
-        <button id="refresh-btn" class="btn-refresh" type="button" title="Ignorar caché y consultar datos frescos">🔄</button>
       </div>
       <div id="result-container" class="result-container">
         <p class="placeholder-text">Ingresa una ciudad para ver el clima 🌎</p>
@@ -38,7 +40,6 @@
       <div class="search-box">
         <input type="text" id="forecast-input" placeholder="Escribe una ciudad..." autocomplete="off">
         <button id="forecast-btn" type="button">Ver pronóstico</button>
-        <button id="forecast-refresh-btn" class="btn-refresh" type="button" title="Ignorar caché y consultar datos frescos">🔄</button>
       </div>
       <div id="forecast-container" class="forecast-container">
         <p class="placeholder-text">Consulta el pronóstico de 5 días de una ciudad 📅</p>
@@ -50,7 +51,6 @@
       <div class="search-box">
         <input type="text" id="compare-input" placeholder="Ej: Bogotá, Madrid, Tokio" autocomplete="off">
         <button id="compare-btn" type="button">Comparar</button>
-        <button id="compare-refresh-btn" class="btn-refresh" type="button" title="Ignorar caché y consultar datos frescos">🔄</button>
       </div>
       <p class="hint-text">Separa cada ciudad con una coma</p>
       <div id="compare-container" class="compare-container">
